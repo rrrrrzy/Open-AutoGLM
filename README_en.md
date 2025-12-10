@@ -440,6 +440,20 @@ adb start-server
 adb devices
 ```
 
+If the device is still not recognized, please check:
+1. Whether USB debugging is enabled
+2. Whether the USB cable supports data transfer (some cables only support charging)
+3. Whether you have tapped "Allow" on the authorization popup on your phone
+4. Try a different USB port or cable
+
+### Can Open Apps but Cannot Tap
+
+Some devices require both debugging options to be enabled:
+- **USB Debugging**
+- **USB Debugging (Security Settings)**
+
+Please check in `Settings → Developer Options` that both options are enabled.
+
 ### Text Input Not Working
 
 1. Ensure ADB Keyboard is installed on the device
