@@ -91,34 +91,35 @@ adb devices
 
 ### 3. 启动模型服务
 
-1. 按照 `requirements.txt` 中 `For Model Deployment` 章节自行安装推理引擎框架。 
+1. 按照 `requirements.txt` 中 `For Model Deployment` 章节自行安装推理引擎框架。
 
-对于SGLang， 除了使用pip安装，你也可以使用官方docker: 
+对于SGLang， 除了使用pip安装，你也可以使用官方docker:
 >
 > ```shell
 > docker pull lmsysorg/sglang:v0.5.6.post1
 > ```
 >
-> 进入容器，执行 
+> 进入容器，执行
+>
 > ```
 > pip install nvidia-cudnn-cu12==9.16.0.29
 > ```
 
-对于 vLLM，除了使用pip 安装，你也可以使用官方docker: 
+对于 vLLM，除了使用pip 安装，你也可以使用官方docker:
 >
 > ```shell
 > docker pull vllm/vllm-openai:v0.12.0
 > ```
 >
-> 进入容器，执行 
+> 进入容器，执行
+>
 > ```
 > pip install -U transformers --pre
 > ```
 
-
 **注意**: 上述步骤出现的关于 transformers 的依赖冲突可以忽略。
 
-2. 在对应容器或者实体机中（非容器安装）下载模型，通过 SGlang / vLLM 启动，得到 OpenAI 格式服务。这里提供一个 vLLM部署方案，请严格遵循我们提供的启动参数:
+1. 在对应容器或者实体机中（非容器安装）下载模型，通过 SGlang / vLLM 启动，得到 OpenAI 格式服务。这里提供一个 vLLM部署方案，请严格遵循我们提供的启动参数:
 
 - vLLM:
 
@@ -151,6 +152,37 @@ python3 -m sglang.launch_server --model-path  zai-org/AutoGLM-Phone-9B \
   获取模型部署和使用指南。
 
 - 运行成功后，将可以通过 `http://localhost:8000/v1` 访问模型服务。 如果您在远程服务器部署模型, 使用该服务器的IP访问模型.
+
+### 4. 检查模型部署
+
+模型服务启动后，可以使用检查脚本验证部署是否成功：
+
+```bash
+python scripts/check_deployment_cn.py --base-url http://你的IP:你的端口/v1 --model 模型名称
+```
+
+脚本将发送测试请求并展示模型的推理结果，你可以根据输出判断模型部署是否正常工作。
+
+基于给定的任务, 预期输出如下。**如果思维链长度很短, 或者出现了乱码, 很可能是模型部署失败**, 请仔细检查文档要求的配置和依赖。
+
+```
+<think>用户想要比较这个洗发水在京东和淘宝上的价格，然后选择最便宜的平台下单。当前在小红书app上，显示的是一个关于LUMMI MOOD洗发水的帖子。
+
+我需要：
+1. 先启动京东app，搜索这个洗发水
+2. 查看京东的价格
+3. 再启动淘宝app，搜索这个洗发水
+4. 查看淘宝的价格
+5. 比较价格后，选择最便宜的京东或淘宝下单
+
+首先，我需要从当前的小红书界面退出，然后启动京东app。</think>
+<answer>do(action="Launch", app="京东")
+```
+
+**参数说明：**
+- `--base-url`: 模型服务地址（根据实际部署地址修改）
+- `--model`: 模型名称
+- `--messages-file`: 可选，指定自定义测试消息文件（默认使用 `scripts/sample_messages.json`）
 
 ## 使用 AutoGLM
 
