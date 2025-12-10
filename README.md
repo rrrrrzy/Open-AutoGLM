@@ -127,6 +127,9 @@ python main.py --base-url http://localhost:8000/v1 --model "autoglm-phone-9b"
 # 指定模型端点
 python main.py --base-url http://localhost:8000/v1 "打开美团搜索附近的火锅店"
 
+# 使用 API Key 进行认证
+python main.py --apikey sk-xxxxx
+
 # 使用英文 system prompt
 python main.py --lang en --base-url http://localhost:8000/v1 "Open Chrome browser"
 
@@ -255,6 +258,7 @@ conn.disconnect("192.168.1.100:5555")
 |-------------------------|------------------|----------------------------|
 | `PHONE_AGENT_BASE_URL`  | 模型 API 地址        | `http://localhost:8000/v1` |
 | `PHONE_AGENT_MODEL`     | 模型名称             | `autoglm-phone-9b`         |
+| `PHONE_AGENT_API_KEY`   | 模型认证 API Key     | `EMPTY`                    |
 | `PHONE_AGENT_MAX_STEPS` | 每个任务最大步数         | `100`                      |
 | `PHONE_AGENT_DEVICE_ID` | ADB 设备 ID        | (自动检测)                     |
 | `PHONE_AGENT_LANG`      | 语言 (`cn` 或 `en`) | `cn`                       |

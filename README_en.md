@@ -52,7 +52,7 @@ Python 3.10 or higher is recommended.
 
 **Please carefully check the relevant permissions**
 
-![Permissions](resources/screenshot-20251209-181423.png)
+![Permissions](resources/screenshot-20251210-120416.png)
 
 ### 4. Install ADB Keyboard (for Text Input)
 
@@ -121,6 +121,9 @@ python main.py --base-url http://localhost:8000/v1 --model "autoglm-phone-9b"
 # Specify model endpoint
 python main.py --base-url http://localhost:8000/v1 "Open Meituan and search for nearby hotpot restaurants"
 
+# Use API key for authentication
+python main.py --apikey sk-xxxxx
+
 # Use English system prompt
 python main.py --lang en --base-url http://localhost:8000/v1 "Open Chrome browser"
 
@@ -158,7 +161,7 @@ Phone Agent supports remote ADB debugging via WiFi/network, allowing device cont
 
 Ensure the phone and computer are on the same WiFi network, as shown below:
 
-![Enable Wireless Debugging](resources/setting.png)
+![Enable Wireless Debugging](resources/screenshot-20251210-120630.png)
 
 #### Use Standard ADB Commands on Computer
 
@@ -248,6 +251,7 @@ You can directly modify the corresponding config files to enhance model capabili
 |---------------------------|---------------------------|------------------------------|
 | `PHONE_AGENT_BASE_URL`    | Model API URL             | `http://localhost:8000/v1`   |
 | `PHONE_AGENT_MODEL`       | Model name                | `autoglm-phone-9b`           |
+| `PHONE_AGENT_API_KEY`     | API key for authentication| `EMPTY`                      |
 | `PHONE_AGENT_MAX_STEPS`   | Maximum steps per task    | `100`                        |
 | `PHONE_AGENT_DEVICE_ID`   | ADB device ID             | (auto-detect)                |
 | `PHONE_AGENT_LANG`        | Language (`cn` or `en`)   | `cn`                         |
