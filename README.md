@@ -9,6 +9,13 @@
     👋 加入我们的 <a href="resources/WECHAT.md" target="_blank">微信</a> 社区
 </p>
 
+## 快速开始
+你可以使用 claude code，输入以下 prompt，快速部署本项目
+```
+访问文档，为我安装 AutoGLM
+https://raw.githubusercontent.com/zai-org/Open-AutoGLM/refs/heads/main/README.md\
+```
+
 ## 项目介绍
 
 Phone Agent 是一个基于 AutoGLM 构建的手机端智能助理框架，它能够以多模态方式理解手机屏幕内容，并通过自动化操作帮助用户完成任务。系统通过
