@@ -169,8 +169,21 @@ class ActionHandler:
         clear_text(self.device_id)
         time.sleep(TIMING_CONFIG.action.text_clear_delay)
 
-        type_text(text, self.device_id)
-        time.sleep(TIMING_CONFIG.action.text_input_delay)
+        # Handle multiline text by splitting on newlines
+        if '\n' in text:
+            lines = text.split('\n')
+            for i, line in enumerate(lines):
+                if line:  # Only type non-empty lines
+                    type_text(line, self.device_id)
+                    time.sleep(0.01)
+
+                # Send ENTER key between lines (not after the last line)
+                if i < len(lines) - 1:
+                    self._send_keyevent("KEYCODE_ENTER")
+                    time.sleep(0.01)
+        else:
+            type_text(text, self.device_id)
+            time.sleep(TIMING_CONFIG.action.text_input_delay)
 
         # Restore original keyboard
         restore_keyboard(original_ime, self.device_id)
@@ -256,6 +269,16 @@ class ActionHandler:
         # This action signals that user input is needed
         return ActionResult(True, False, message="User interaction required")
 
+    def _send_keyevent(self, keycode: str) -> None:
+        """Send a keyevent to the device."""
+        import subprocess
+        adb_prefix = ["adb", "-s", self.device_id] if self.device_id else ["adb"]
+        subprocess.run(
+            adb_prefix + ["shell", "input", "keyevent", keycode],
+            capture_output=True,
+            text=True,
+        )
+
     @staticmethod
     def _default_confirmation(message: str) -> bool:
         """Default confirmation callback using console input."""
@@ -281,11 +304,17 @@ def parse_action(response: str) -> dict[str, Any]:
     Raises:
         ValueError: If the response cannot be parsed.
     """
+    print(f"Parsing action: {response}")
     try:
         response = response.strip()
         if response.startswith("do"):
             # Use AST parsing instead of eval for safety
             try:
+                # Escape special characters (newlines, tabs, etc.) for valid Python syntax
+                response = response.replace('\n', '\\n')
+                response = response.replace('\r', '\\r')
+                response = response.replace('\t', '\\t')
+
                 tree = ast.parse(response, mode="eval")
                 if not isinstance(tree.body, ast.Call):
                     raise ValueError("Expected a function call")
