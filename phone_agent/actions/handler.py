@@ -163,20 +163,8 @@ class ActionHandler:
         time.sleep(TIMING_CONFIG.action.text_clear_delay)
 
         # Handle multiline text by splitting on newlines
-        if '\n' in text:
-            lines = text.split('\n')
-            for i, line in enumerate(lines):
-                if line:  # Only type non-empty lines
-                    device_factory.type_text(line, self.device_id)
-                    time.sleep(0.01)
-
-                # Send ENTER key between lines (not after the last line)
-                if i < len(lines) - 1:
-                    self._send_keyevent("KEYCODE_ENTER")
-                    time.sleep(0.01)
-        else:
-            device_factory.type_text(text, self.device_id)
-            time.sleep(TIMING_CONFIG.action.text_input_delay)
+        device_factory.type_text(text, self.device_id)
+        time.sleep(TIMING_CONFIG.action.text_input_delay)
 
         # Restore original keyboard
         device_factory.restore_keyboard(original_ime, self.device_id)
@@ -357,7 +345,13 @@ def parse_action(response: str) -> dict[str, Any]:
     print(f"Parsing action: {response}")
     try:
         response = response.strip()
-        if response.startswith("do"):
+        if response.startswith('do(action="Type"') or response.startswith(
+            'do(action="Type_Name"'
+        ):
+            text = response.split("text=", 1)[1][1:-2]
+            action = {"_metadata": "do", "action": "Type", "text": text}
+            return action
+        elif response.startswith("do"):
             # Use AST parsing instead of eval for safety
             try:
                 # Escape special characters (newlines, tabs, etc.) for valid Python syntax
