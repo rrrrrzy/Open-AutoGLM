@@ -85,7 +85,7 @@ class TaskExecutionThread(QThread):
     status = pyqtSignal(str)
     input_requested = pyqtSignal(str)  # Signal when input() is called
 
-    def __init__(self, execute_func: Callable, task: str, config: dict):
+    def __init__(self, execute_func: Callable, task: str, config: dict, advanced_config: Optional[dict] = None):
         """
         Initialize task execution thread.
 
@@ -93,14 +93,17 @@ class TaskExecutionThread(QThread):
             execute_func: Function to execute the task
             task: Task description
             config: Configuration dictionary
+            advanced_config: Advanced options (wake screen, kill app, retry, etc.)
         """
         super().__init__()
         self.execute_func = execute_func
         self.task = task
         self.config = config
+        self.advanced_config = advanced_config or {}
         self._stop_requested = False
         self._input_response = None
         self._waiting_for_input = False
+        self._auto_enter_count = 0  # Track auto enter usage
 
     def request_stop(self):
         """Request the thread to stop execution."""
@@ -113,6 +116,9 @@ class TaskExecutionThread(QThread):
 
     def run(self):
         """Execute the task."""
+        from .adb_utils import wake_screen, lock_screen, kill_app
+        import builtins
+        
         # Redirect stdout and stderr to capture all output
         old_stdout = sys.stdout
         old_stderr = sys.stderr
@@ -164,11 +170,81 @@ class TaskExecutionThread(QThread):
                 self.error.emit("任务被用户终止 (Task terminated by user)")
                 return
             
-            result = self.execute_func(self.task, self.config)
+            # Get advanced options
+            device_id = self.config.get("device_id", "")
+            auto_wake = self.advanced_config.get("auto_wake_screen", False)
+            auto_lock = self.advanced_config.get("auto_lock_screen", False)
+            auto_kill_enabled = self.advanced_config.get("auto_kill_app_enabled", False)
+            kill_package = self.advanced_config.get("auto_kill_app_package", "")
+            retry_enabled = self.advanced_config.get("retry_on_failure_enabled", False)
+            max_retries = self.advanced_config.get("retry_max_retries", 3)
+            retry_interval = self.advanced_config.get("retry_interval", 10)
+            
+            # Pre-task operations
+            # 1. Kill app (before wake screen)
+            if auto_kill_enabled and kill_package:
+                self.log.emit(f"🔄 结束应用进程 (Killing app): {kill_package}\n")
+                if kill_app(kill_package, device_id):
+                    self.log.emit("✓ 应用进程已结束 (App killed)\n")
+                else:
+                    self.log.emit("⚠️ 结束应用进程失败 (Failed to kill app)\n")
+            
+            # 2. Wake screen
+            if auto_wake:
+                self.log.emit("🔓 唤醒屏幕 (Waking screen)...\n")
+                if wake_screen(device_id):
+                    self.log.emit("✓ 屏幕已唤醒 (Screen woken)\n")
+                else:
+                    self.log.emit("⚠️ 唤醒屏幕失败 (Failed to wake screen)\n")
+            
+            # Execute task with retry logic
+            retry_count = 0
+            last_error = None
+            result = None
+            
+            while retry_count <= (max_retries if retry_enabled else 0):
+                try:
+                    if retry_count > 0:
+                        self.log.emit(f"\n🔄 重试 {retry_count}/{max_retries} (Retry {retry_count}/{max_retries})\n")
+                        self.log.emit(f"等待 {retry_interval} 秒... (Waiting {retry_interval}s...)\n")
+                        import time
+                        time.sleep(retry_interval)
+                        # Reset auto enter count for new retry
+                        self._auto_enter_count = 0
+                    
+                    result = self.execute_func(self.task, self.config)
+                    
+                    # Success - break retry loop
+                    break
+                    
+                except Exception as e:
+                    last_error = e
+                    if retry_enabled and retry_count < max_retries:
+                        self.log.emit(f"\n❌ 任务失败 (Task failed): {str(e)}\n")
+                        retry_count += 1
+                    else:
+                        raise
             
             # Flush any remaining output
             stdout_redirector.flush()
             stderr_redirector.flush()
+            
+            # Post-task operations
+            # 1. Kill app (before lock screen)
+            if auto_kill_enabled and kill_package:
+                self.log.emit(f"\n🔄 结束应用进程 (Killing app): {kill_package}\n")
+                if kill_app(kill_package, device_id):
+                    self.log.emit("✓ 应用进程已结束 (App killed)\n")
+                else:
+                    self.log.emit("⚠️ 结束应用进程失败 (Failed to kill app)\n")
+            
+            # 2. Lock screen
+            if auto_lock:
+                self.log.emit("🔒 锁定屏幕 (Locking screen)...\n")
+                if lock_screen(device_id):
+                    self.log.emit("✓ 屏幕已锁定 (Screen locked)\n")
+                else:
+                    self.log.emit("⚠️ 锁定屏幕失败 (Failed to lock screen)\n")
             
             if self._stop_requested:
                 self.status.emit("已终止 (Terminated)")
@@ -189,6 +265,7 @@ class TaskExecutionThread(QThread):
                 self.error.emit(str(e))
         finally:
             # Restore original stdout/stderr/input
+            import builtins
             sys.stdout = old_stdout
             sys.stderr = old_stderr
             builtins.input = old_input
@@ -277,6 +354,66 @@ class MainWindow(QMainWindow):
 
         settings_group.setLayout(settings_layout)
         main_layout.addWidget(settings_group)
+
+        # Advanced options group
+        advanced_group = QGroupBox("高级选项 (Advanced Options)")
+        advanced_layout = QVBoxLayout()
+
+        # Option 1: Auto wake screen
+        self.auto_wake_checkbox = QCheckBox("自动唤醒屏幕 (Auto Wake Screen)")
+        self.auto_wake_checkbox.setToolTip("执行任务前通过 ADB 自动唤醒屏幕")
+        advanced_layout.addWidget(self.auto_wake_checkbox)
+
+        # Option 2: Auto lock screen
+        self.auto_lock_checkbox = QCheckBox("结束后自动熄屏 (Auto Lock After Task)")
+        self.auto_lock_checkbox.setToolTip("任务结束后通过 ADB 自动锁定屏幕")
+        advanced_layout.addWidget(self.auto_lock_checkbox)
+
+        # Option 3: Auto kill app
+        kill_app_layout = QHBoxLayout()
+        self.auto_kill_app_checkbox = QCheckBox("自动结束应用进程 (Auto Kill App)")
+        self.auto_kill_app_checkbox.setToolTip("任务开始前和结束后自动结束指定应用")
+        self.auto_kill_app_checkbox.stateChanged.connect(self.on_auto_kill_app_toggled)
+        kill_app_layout.addWidget(self.auto_kill_app_checkbox)
+        self.kill_app_package_input = QLineEdit()
+        self.kill_app_package_input.setPlaceholderText("包名 (Package name, e.g., com.example.app)")
+        self.kill_app_package_input.setEnabled(False)
+        kill_app_layout.addWidget(self.kill_app_package_input)
+        advanced_layout.addLayout(kill_app_layout)
+
+        # Option 4: Retry on failure
+        retry_layout = QVBoxLayout()
+        self.retry_checkbox = QCheckBox("失败重试 (Retry on Failure)")
+        self.retry_checkbox.setToolTip("任务失败后自动重试")
+        self.retry_checkbox.stateChanged.connect(self.on_retry_toggled)
+        retry_layout.addWidget(self.retry_checkbox)
+        
+        retry_settings_layout = QHBoxLayout()
+        retry_settings_layout.addWidget(QLabel("最大重试次数 (Max Retries):"))
+        self.retry_max_input = QSpinBox()
+        self.retry_max_input.setRange(1, 10)
+        self.retry_max_input.setValue(3)
+        self.retry_max_input.setEnabled(False)
+        retry_settings_layout.addWidget(self.retry_max_input)
+        retry_settings_layout.addWidget(QLabel("重试间隔 (Interval):"))
+        self.retry_interval_input = QSpinBox()
+        self.retry_interval_input.setRange(1, 300)
+        self.retry_interval_input.setValue(10)
+        self.retry_interval_input.setSuffix(" 秒 (s)")
+        self.retry_interval_input.setEnabled(False)
+        retry_settings_layout.addWidget(self.retry_interval_input)
+        retry_settings_layout.addStretch()
+        retry_layout.addLayout(retry_settings_layout)
+        advanced_layout.addLayout(retry_layout)
+
+        # Option 5: Auto enter
+        self.auto_enter_checkbox = QCheckBox("自动回车 (Auto Enter)")
+        self.auto_enter_checkbox.setToolTip("需要输入时自动发送回车（需要启用自动唤醒屏幕和失败重试）")
+        self.auto_enter_checkbox.stateChanged.connect(self.on_auto_enter_toggled)
+        advanced_layout.addWidget(self.auto_enter_checkbox)
+
+        advanced_group.setLayout(advanced_layout)
+        main_layout.addWidget(advanced_group)
 
         # Task group
         task_group = QGroupBox("任务 (Task)")
@@ -419,6 +556,31 @@ class MainWindow(QMainWindow):
         is_ios = device_type == "ios"
         self.wda_url_input.setEnabled(is_ios)
 
+    def on_auto_kill_app_toggled(self, state: int):
+        """Handle auto kill app checkbox toggle."""
+        enabled = state == Qt.CheckState.Checked.value
+        self.kill_app_package_input.setEnabled(enabled)
+
+    def on_retry_toggled(self, state: int):
+        """Handle retry checkbox toggle."""
+        enabled = state == Qt.CheckState.Checked.value
+        self.retry_max_input.setEnabled(enabled)
+        self.retry_interval_input.setEnabled(enabled)
+
+    def on_auto_enter_toggled(self, state: int):
+        """Handle auto enter checkbox toggle."""
+        enabled = state == Qt.CheckState.Checked.value
+        if enabled:
+            # Check dependencies
+            if not self.auto_wake_checkbox.isChecked() or not self.retry_checkbox.isChecked():
+                QMessageBox.warning(
+                    self,
+                    "依赖检查 (Dependency Check)",
+                    "自动回车功能需要同时启用：\n1. 自动唤醒屏幕\n2. 失败重试\n\n"
+                    "(Auto Enter requires both:\n1. Auto Wake Screen\n2. Retry on Failure)"
+                )
+                self.auto_enter_checkbox.setChecked(False)
+
     def load_settings(self):
         """Load settings from storage."""
         self.base_url_input.setText(self.settings.get_base_url())
@@ -443,6 +605,16 @@ class MainWindow(QMainWindow):
         hour = self.settings.get_schedule_time_hour()
         minute = self.settings.get_schedule_time_minute()
         self.schedule_time_input.setTime(QTime(hour, minute))
+        
+        # Load advanced options
+        self.auto_wake_checkbox.setChecked(self.settings.get_auto_wake_screen())
+        self.auto_lock_checkbox.setChecked(self.settings.get_auto_lock_screen())
+        self.auto_kill_app_checkbox.setChecked(self.settings.get_auto_kill_app_enabled())
+        self.kill_app_package_input.setText(self.settings.get_auto_kill_app_package())
+        self.retry_checkbox.setChecked(self.settings.get_retry_on_failure_enabled())
+        self.retry_max_input.setValue(self.settings.get_retry_max_retries())
+        self.retry_interval_input.setValue(self.settings.get_retry_interval())
+        self.auto_enter_checkbox.setChecked(self.settings.get_auto_enter_enabled())
 
     def save_settings(self):
         """Save settings to storage."""
@@ -464,6 +636,16 @@ class MainWindow(QMainWindow):
         time = self.schedule_time_input.time()
         self.settings.set_schedule_time_hour(time.hour())
         self.settings.set_schedule_time_minute(time.minute())
+        
+        # Save advanced options
+        self.settings.set_auto_wake_screen(self.auto_wake_checkbox.isChecked())
+        self.settings.set_auto_lock_screen(self.auto_lock_checkbox.isChecked())
+        self.settings.set_auto_kill_app_enabled(self.auto_kill_app_checkbox.isChecked())
+        self.settings.set_auto_kill_app_package(self.kill_app_package_input.text())
+        self.settings.set_retry_on_failure_enabled(self.retry_checkbox.isChecked())
+        self.settings.set_retry_max_retries(self.retry_max_input.value())
+        self.settings.set_retry_interval(self.retry_interval_input.value())
+        self.settings.set_auto_enter_enabled(self.auto_enter_checkbox.isChecked())
 
         self.log_output("✓ 设置已保存 (Settings saved)\n")
 
@@ -509,7 +691,20 @@ class MainWindow(QMainWindow):
 
         # Create and start execution thread
         config = self.get_config()
-        self.execution_thread = TaskExecutionThread(self.execute_func, task, config)
+        
+        # Get advanced options
+        advanced_config = {
+            "auto_wake_screen": self.auto_wake_checkbox.isChecked(),
+            "auto_lock_screen": self.auto_lock_checkbox.isChecked(),
+            "auto_kill_app_enabled": self.auto_kill_app_checkbox.isChecked(),
+            "auto_kill_app_package": self.kill_app_package_input.text(),
+            "retry_on_failure_enabled": self.retry_checkbox.isChecked(),
+            "retry_max_retries": self.retry_max_input.value(),
+            "retry_interval": self.retry_interval_input.value(),
+            "auto_enter_enabled": self.auto_enter_checkbox.isChecked(),
+        }
+        
+        self.execution_thread = TaskExecutionThread(self.execute_func, task, config, advanced_config)
         self.execution_thread.finished.connect(self.on_task_finished)
         self.execution_thread.error.connect(self.on_task_error)
         self.execution_thread.log.connect(self.log_output)
@@ -527,9 +722,46 @@ class MainWindow(QMainWindow):
 
     def on_input_requested(self, prompt: str):
         """Handle input request from execution thread."""
+        from .adb_utils import wake_screen
+        
         self._waiting_for_input = True
         self.send_enter_btn.setEnabled(True)
         self.log_output("\n⌨️  等待用户输入... (Waiting for input...)\n")
+        
+        # Check if auto enter is enabled
+        auto_enter_enabled = self.auto_enter_checkbox.isChecked()
+        auto_wake_enabled = self.auto_wake_checkbox.isChecked()
+        retry_enabled = self.retry_checkbox.isChecked()
+        max_retries = self.retry_max_input.value()
+        
+        # Auto enter requires both auto wake and retry enabled
+        if auto_enter_enabled and auto_wake_enabled and retry_enabled:
+            # Check if we have execution thread and haven't exceeded retry count
+            if self.execution_thread and hasattr(self.execution_thread, '_auto_enter_count'):
+                if self.execution_thread._auto_enter_count < max_retries:
+                    self.log_output("🤖 自动回车模式已启用 (Auto enter mode enabled)\n")
+                    
+                    # Wake screen before sending enter
+                    device_id = self.device_id_input.text()
+                    self.log_output("🔓 唤醒屏幕... (Waking screen...)\n")
+                    if wake_screen(device_id):
+                        self.log_output("✓ 屏幕已唤醒 (Screen woken)\n")
+                    else:
+                        self.log_output("⚠️ 唤醒屏幕失败 (Failed to wake screen)\n")
+                    
+                    # Auto send enter
+                    import time
+                    time.sleep(1)  # Wait a bit after waking screen
+                    if self.execution_thread:
+                        self.execution_thread._auto_enter_count += 1
+                        self.log_output(f"✓ 自动发送回车 ({self.execution_thread._auto_enter_count}/{max_retries}) (Auto sending enter)\n")
+                        self.execution_thread.provide_input("")
+                    self.send_enter_btn.setEnabled(False)
+                    self._waiting_for_input = False
+                    return
+                else:
+                    self.log_output(f"⚠️ 已达到自动回车次数上限 ({max_retries}) (Reached auto enter limit)\n")
+        
         if "Press Enter" in prompt or "按回车" in prompt:
             self.log_output('💡 提示：点击"发送回车"按钮继续 (Hint: Click \'Send Enter\' button to continue)\n')
 

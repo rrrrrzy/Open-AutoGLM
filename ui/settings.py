@@ -121,3 +121,72 @@ class SettingsManager:
     def set_schedule_time_minute(self, minute: int):
         """Set scheduled minute."""
         self.settings.setValue("schedule_time_minute", minute)
+
+    # Auto wake screen
+    def get_auto_wake_screen(self) -> bool:
+        """Get auto wake screen setting."""
+        return self.settings.value("auto_wake_screen", False, type=bool)
+
+    def set_auto_wake_screen(self, enabled: bool):
+        """Set auto wake screen setting."""
+        self.settings.setValue("auto_wake_screen", enabled)
+
+    # Auto lock screen
+    def get_auto_lock_screen(self) -> bool:
+        """Get auto lock screen setting."""
+        return self.settings.value("auto_lock_screen", False, type=bool)
+
+    def set_auto_lock_screen(self, enabled: bool):
+        """Set auto lock screen setting."""
+        self.settings.setValue("auto_lock_screen", enabled)
+
+    # Auto kill app
+    def get_auto_kill_app_enabled(self) -> bool:
+        """Get auto kill app enabled setting."""
+        return self.settings.value("auto_kill_app_enabled", False, type=bool)
+
+    def set_auto_kill_app_enabled(self, enabled: bool):
+        """Set auto kill app enabled setting."""
+        self.settings.setValue("auto_kill_app_enabled", enabled)
+
+    def get_auto_kill_app_package(self) -> str:
+        """Get auto kill app package name."""
+        return self.settings.value("auto_kill_app_package", "")
+
+    def set_auto_kill_app_package(self, package: str):
+        """Set auto kill app package name."""
+        self.settings.setValue("auto_kill_app_package", package)
+
+    # Retry on failure
+    def get_retry_on_failure_enabled(self) -> bool:
+        """Get retry on failure enabled setting."""
+        return self.settings.value("retry_on_failure_enabled", False, type=bool)
+
+    def set_retry_on_failure_enabled(self, enabled: bool):
+        """Set retry on failure enabled setting."""
+        self.settings.setValue("retry_on_failure_enabled", enabled)
+
+    def get_retry_max_retries(self) -> int:
+        """Get max retry count."""
+        return int(self.settings.value("retry_max_retries", 3))
+
+    def set_retry_max_retries(self, max_retries: int):
+        """Set max retry count."""
+        self.settings.setValue("retry_max_retries", max_retries)
+
+    def get_retry_interval(self) -> int:
+        """Get retry interval in seconds."""
+        return int(self.settings.value("retry_interval", 10))
+
+    def set_retry_interval(self, interval: int):
+        """Set retry interval in seconds."""
+        self.settings.setValue("retry_interval", interval)
+
+    # Auto enter
+    def get_auto_enter_enabled(self) -> bool:
+        """Get auto enter enabled setting."""
+        return self.settings.value("auto_enter_enabled", False, type=bool)
+
+    def set_auto_enter_enabled(self, enabled: bool):
+        """Set auto enter enabled setting."""
+        self.settings.setValue("auto_enter_enabled", enabled)
