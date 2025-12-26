@@ -282,6 +282,23 @@ python scripts/check_deployment_cn.py --base-url http://你的IP:你的端口/v1
 
 ## 使用 AutoGLM
 
+### 图形界面 (UI)
+
+AutoGLM 提供了图形化用户界面，方便进行设置管理和任务执行：
+
+```bash
+# 启动图形界面
+python main.py --ui
+```
+
+UI 界面特性：
+- **设置管理**: 配置 API 端点、模型、API 密钥等
+- **任务执行**: 输入任务描述并一键执行
+- **定时任务**: 支持按设置的时间间隔自动执行任务
+- **持久化配置**: 自动保存和加载设置
+
+详细使用说明请参考 [UI 模块文档](ui/README.md)。
+
 ### 命令行
 
 根据你部署的模型, 设置 `--base-url` 和 `--model` 参数, 设置 `--device-type` 指定是安卓设备或鸿蒙设备 (默认值 adb 表示安卓设备, hdc 表示鸿蒙设备). 例如:

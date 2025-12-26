@@ -516,6 +516,12 @@ Examples:
     )
 
     parser.add_argument(
+        "--ui",
+        action="store_true",
+        help="Launch graphical user interface",
+    )
+
+    parser.add_argument(
         "task",
         nargs="?",
         type=str,
@@ -682,9 +688,120 @@ def handle_device_commands(args) -> bool:
     return False
 
 
+def create_agent(config: dict):
+    """Create and return agent based on configuration.
+    
+    Args:
+        config: Configuration dictionary with keys:
+            - base_url: Model API base URL
+            - model: Model name
+            - api_key: API key
+            - max_steps: Maximum steps
+            - language: Language (cn/en)
+            - device_type: Device type (adb/hdc/ios)
+            - device_id: Device ID (optional)
+            - wda_url: WDA URL for iOS (optional)
+    
+    Returns:
+        Tuple of (agent, device_type_enum)
+    """
+    # Determine device type
+    device_type_str = config.get("device_type", "adb")
+    if device_type_str == "adb":
+        device_type = DeviceType.ADB
+    elif device_type_str == "hdc":
+        device_type = DeviceType.HDC
+    else:
+        device_type = DeviceType.IOS
+    
+    # Set device type globally for non-iOS devices
+    if device_type != DeviceType.IOS:
+        set_device_type(device_type)
+    
+    # Enable HDC verbose mode if using HDC
+    if device_type == DeviceType.HDC:
+        from phone_agent.hdc import set_hdc_verbose
+        set_hdc_verbose(True)
+    
+    # Create model config
+    model_config = ModelConfig(
+        base_url=config.get("base_url", "http://localhost:8000/v1"),
+        model_name=config.get("model", "autoglm-phone-9b"),
+        api_key=config.get("api_key", "EMPTY"),
+        lang=config.get("language", "cn"),
+    )
+    
+    # Create agent based on device type
+    if device_type == DeviceType.IOS:
+        agent_config = IOSAgentConfig(
+            max_steps=config.get("max_steps", 100),
+            wda_url=config.get("wda_url", "http://localhost:8100"),
+            device_id=config.get("device_id"),
+            verbose=True,
+            lang=config.get("language", "cn"),
+        )
+        agent = IOSPhoneAgent(
+            model_config=model_config,
+            agent_config=agent_config,
+        )
+    else:
+        agent_config = AgentConfig(
+            max_steps=config.get("max_steps", 100),
+            device_id=config.get("device_id"),
+            verbose=True,
+            lang=config.get("language", "cn"),
+        )
+        agent = PhoneAgent(
+            model_config=model_config,
+            agent_config=agent_config,
+        )
+    
+    return agent, device_type
+
+
+def execute_task_from_ui(task: str, config: dict) -> str:
+    """Execute a task from the UI.
+    
+    Args:
+        task: Task description
+        config: Configuration dictionary
+    
+    Returns:
+        Result string
+    """
+    try:
+        agent, device_type = create_agent(config)
+        result = agent.run(task)
+        agent.reset()
+        return result
+    except Exception as e:
+        raise Exception(f"Task execution failed: {str(e)}")
+
+
+def run_ui_mode():
+    """Run the application in UI mode."""
+    try:
+        from PyQt6.QtWidgets import QApplication
+        from ui import MainWindow
+    except ImportError:
+        print("Error: PyQt6 is not installed.")
+        print("Please install it using: pip install PyQt6")
+        sys.exit(1)
+    
+    app = QApplication(sys.argv)
+    window = MainWindow(execute_func=execute_task_from_ui)
+    window.show()
+    sys.exit(app.exec())
+
+
 def main():
     """Main entry point."""
     args = parse_args()
+    
+    # Check if UI mode is requested
+    if args.ui:
+        run_ui_mode()
+        return
 
     # Set device type globally based on args
     if args.device_type == "adb":
