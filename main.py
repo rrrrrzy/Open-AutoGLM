@@ -770,11 +770,42 @@ def execute_task_from_ui(task: str, config: dict) -> str:
     Returns:
         Result string
     """
+    import threading
+    
+    # Get the thread that called this function
+    current_thread = threading.current_thread()
+    
     try:
         agent, device_type = create_agent(config)
-        result = agent.run(task)
+        
+        # Initialize agent context
+        agent._context = []
+        agent._step_count = 0
+        
+        # First step with user prompt
+        result = agent._execute_step(task, is_first=True)
+        
+        if result.finished:
+            agent.reset()
+            return result.message or "Task completed"
+        
+        # Continue until finished or max steps reached
+        while agent._step_count < agent.agent_config.max_steps:
+            # Check if thread should stop
+            if hasattr(current_thread, '_stop_requested') and current_thread._stop_requested:
+                print("\n任务被用户终止 (Task terminated by user)")
+                agent.reset()
+                return "任务被用户终止 (Task terminated by user)"
+            
+            result = agent._execute_step(is_first=False)
+            
+            if result.finished:
+                agent.reset()
+                return result.message or "Task completed"
+        
         agent.reset()
-        return result
+        return "Max steps reached"
+        
     except Exception as e:
         raise Exception(f"Task execution failed: {str(e)}")
 

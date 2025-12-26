@@ -158,6 +158,12 @@ class TaskExecutionThread(QThread):
             self.log.emit(f"开始任务 (Starting task): {self.task}\n")
             self.log.emit("=" * 50 + "\n")
             
+            # Check if stop was requested before starting
+            if self._stop_requested:
+                self.status.emit("已终止 (Terminated)")
+                self.error.emit("任务被用户终止 (Task terminated by user)")
+                return
+            
             result = self.execute_func(self.task, self.config)
             
             # Flush any remaining output
@@ -171,9 +177,16 @@ class TaskExecutionThread(QThread):
                 self.status.emit("已完成 (Completed)")
                 self.finished.emit(result)
                 
+        except KeyboardInterrupt:
+            self.status.emit("已终止 (Terminated)")
+            self.error.emit("任务被用户终止 (Task terminated by user)")
         except Exception as e:
-            self.status.emit("出错 (Error)")
-            self.error.emit(str(e))
+            if self._stop_requested:
+                self.status.emit("已终止 (Terminated)")
+                self.error.emit("任务被用户终止 (Task terminated by user)")
+            else:
+                self.status.emit("出错 (Error)")
+                self.error.emit(str(e))
         finally:
             # Restore original stdout/stderr/input
             sys.stdout = old_stdout
@@ -531,9 +544,17 @@ class MainWindow(QMainWindow):
             )
             if reply == QMessageBox.StandardButton.Yes:
                 self.log_output("\n⚠️ 正在终止任务... (Terminating task...)\n")
+                
+                # First, request graceful stop
                 self.execution_thread.request_stop()
-                self.execution_thread.terminate()
-                self.execution_thread.wait()
+                
+                # Wait for a short time for graceful termination
+                if not self.execution_thread.wait(2000):  # Wait 2 seconds
+                    # If still running, force terminate
+                    self.log_output("⚠️ 任务未响应，强制终止... (Task not responding, forcing termination...)\n")
+                    self.execution_thread.terminate()
+                    self.execution_thread.wait()
+                
                 self.update_status("已终止 (Terminated)", "red")
                 self.reset_ui_state()
 
