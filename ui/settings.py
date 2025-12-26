@@ -97,3 +97,27 @@ class SettingsManager:
     def set_schedule_interval(self, interval: int):
         """Set schedule interval in minutes."""
         self.settings.setValue("schedule_interval", interval)
+
+    def get_schedule_mode(self) -> str:
+        """Get schedule mode ('interval' or 'specific_time')."""
+        return self.settings.value("schedule_mode", "interval", type=str)
+
+    def set_schedule_mode(self, mode: str):
+        """Set schedule mode."""
+        self.settings.setValue("schedule_mode", mode)
+
+    def get_schedule_time_hour(self) -> int:
+        """Get scheduled hour (0-23)."""
+        return int(self.settings.value("schedule_time_hour", 8))
+
+    def set_schedule_time_hour(self, hour: int):
+        """Set scheduled hour."""
+        self.settings.setValue("schedule_time_hour", hour)
+
+    def get_schedule_time_minute(self) -> int:
+        """Get scheduled minute (0-59)."""
+        return int(self.settings.value("schedule_time_minute", 0))
+
+    def set_schedule_time_minute(self, minute: int):
+        """Set scheduled minute."""
+        self.settings.setValue("schedule_time_minute", minute)

@@ -5,7 +5,7 @@ import io
 import os
 from typing import Callable, Optional
 
-from PyQt6.QtCore import QThread, pyqtSignal, Qt, QEvent
+from PyQt6.QtCore import QThread, pyqtSignal, Qt, QEvent, QTime, QTimer
 from PyQt6.QtGui import QIcon, QAction
 from PyQt6.QtWidgets import (
     QApplication,
@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import (
     QSpinBox,
     QSystemTrayIcon,
     QTextEdit,
+    QTimeEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -320,23 +321,63 @@ class MainWindow(QMainWindow):
 
         # Scheduler group
         scheduler_group = QGroupBox("定时执行 (Scheduled Execution)")
-        scheduler_layout = QHBoxLayout()
+        scheduler_main_layout = QVBoxLayout()
 
+        # Enable checkbox
         self.schedule_enabled_checkbox = QCheckBox("启用定时执行 (Enable)")
         self.schedule_enabled_checkbox.stateChanged.connect(self.on_schedule_toggled)
-        scheduler_layout.addWidget(self.schedule_enabled_checkbox)
+        scheduler_main_layout.addWidget(self.schedule_enabled_checkbox)
 
-        scheduler_layout.addWidget(QLabel("间隔 (Interval):"))
+        # Mode selection
+        mode_layout = QHBoxLayout()
+        mode_layout.addWidget(QLabel("模式 (Mode):"))
+        self.schedule_mode_combo = QComboBox()
+        self.schedule_mode_combo.addItems(["间隔执行 (Interval)", "定时执行 (Specific Time)"])
+        self.schedule_mode_combo.currentIndexChanged.connect(self.on_schedule_mode_changed)
+        mode_layout.addWidget(self.schedule_mode_combo)
+        mode_layout.addStretch()
+        scheduler_main_layout.addLayout(mode_layout)
+
+        # Interval mode controls
+        self.interval_widget = QWidget()
+        interval_layout = QHBoxLayout()
+        interval_layout.setContentsMargins(0, 0, 0, 0)
+        interval_layout.addWidget(QLabel("间隔 (Interval):"))
         self.schedule_interval_input = QSpinBox()
         self.schedule_interval_input.setRange(1, 1440)  # 1 minute to 24 hours
         self.schedule_interval_input.setValue(60)
         self.schedule_interval_input.setSuffix(" 分钟 (min)")
         self.schedule_interval_input.valueChanged.connect(self.on_interval_changed)
-        scheduler_layout.addWidget(self.schedule_interval_input)
+        interval_layout.addWidget(self.schedule_interval_input)
+        interval_layout.addStretch()
+        self.interval_widget.setLayout(interval_layout)
+        scheduler_main_layout.addWidget(self.interval_widget)
 
-        scheduler_layout.addStretch()
+        # Specific time mode controls
+        self.time_widget = QWidget()
+        time_layout = QHBoxLayout()
+        time_layout.setContentsMargins(0, 0, 0, 0)
+        time_layout.addWidget(QLabel("每天执行时间 (Daily Time):"))
+        self.schedule_time_input = QTimeEdit()
+        self.schedule_time_input.setDisplayFormat("HH:mm")
+        self.schedule_time_input.setTime(QTime(8, 0))  # Default 08:00
+        time_layout.addWidget(self.schedule_time_input)
+        time_layout.addStretch()
+        self.time_widget.setLayout(time_layout)
+        self.time_widget.setVisible(False)  # Hidden by default
+        scheduler_main_layout.addWidget(self.time_widget)
 
-        scheduler_group.setLayout(scheduler_layout)
+        # Next execution info
+        self.next_execution_label = QLabel("下次执行 (Next): --")
+        self.next_execution_label.setStyleSheet("QLabel { color: gray; font-style: italic; }")
+        scheduler_main_layout.addWidget(self.next_execution_label)
+
+        # Update next execution time timer
+        self.update_timer = QTimer()
+        self.update_timer.timeout.connect(self.update_next_execution_display)
+        self.update_timer.start(1000)  # Update every second
+
+        scheduler_group.setLayout(scheduler_main_layout)
         main_layout.addWidget(scheduler_group)
 
         # Output group
@@ -378,6 +419,17 @@ class MainWindow(QMainWindow):
         self.wda_url_input.setText(self.settings.get_wda_url())
         self.schedule_interval_input.setValue(self.settings.get_schedule_interval())
         self.schedule_enabled_checkbox.setChecked(self.settings.get_schedule_enabled())
+        
+        # Load schedule mode and time
+        mode = self.settings.get_schedule_mode()
+        if mode == "specific_time":
+            self.schedule_mode_combo.setCurrentIndex(1)
+        else:
+            self.schedule_mode_combo.setCurrentIndex(0)
+        
+        hour = self.settings.get_schedule_time_hour()
+        minute = self.settings.get_schedule_time_minute()
+        self.schedule_time_input.setTime(QTime(hour, minute))
 
     def save_settings(self):
         """Save settings to storage."""
@@ -392,6 +444,13 @@ class MainWindow(QMainWindow):
         self.settings.set_wda_url(self.wda_url_input.text())
         self.settings.set_schedule_interval(self.schedule_interval_input.value())
         self.settings.set_schedule_enabled(self.schedule_enabled_checkbox.isChecked())
+        
+        # Save schedule mode and time
+        mode = "specific_time" if self.schedule_mode_combo.currentIndex() == 1 else "interval"
+        self.settings.set_schedule_mode(mode)
+        time = self.schedule_time_input.time()
+        self.settings.set_schedule_time_hour(time.hour())
+        self.settings.set_schedule_time_minute(time.minute())
 
         self.log_output("✓ 设置已保存 (Settings saved)\n")
 
@@ -538,20 +597,91 @@ class MainWindow(QMainWindow):
         if enabled:
             # Save settings and start scheduler
             self.save_settings()
-            self.scheduler.set_interval(self.schedule_interval_input.value())
+            
+            mode_index = self.schedule_mode_combo.currentIndex()
+            if mode_index == 0:  # Interval mode
+                self.scheduler.set_interval(self.schedule_interval_input.value())
+                self.log_output(
+                    f"✓ 定时执行已启动，间隔 {self.schedule_interval_input.value()} 分钟\n"
+                    f"  (Scheduled execution started, interval: {self.schedule_interval_input.value()} minutes)\n"
+                )
+            else:  # Specific time mode
+                time = self.schedule_time_input.time()
+                self.scheduler.set_specific_time(time.hour(), time.minute())
+                self.log_output(
+                    f"✓ 定时执行已启动，每天 {time.toString('HH:mm')} 执行\n"
+                    f"  (Scheduled execution started, daily at {time.toString('HH:mm')})\n"
+                )
+            
             self.scheduler.start()
-            self.log_output(
-                f"✓ 定时执行已启动，间隔 {self.schedule_interval_input.value()} 分钟\n"
-                f"  (Scheduled execution started, interval: {self.schedule_interval_input.value()} minutes)\n"
-            )
         else:
             # Stop scheduler
             self.scheduler.stop()
             self.log_output("✓ 定时执行已停止 (Scheduled execution stopped)\n")
 
+    def on_schedule_mode_changed(self, index: int):
+        """Handle schedule mode change."""
+        # Show/hide appropriate widgets
+        if index == 0:  # Interval mode
+            self.interval_widget.setVisible(True)
+            self.time_widget.setVisible(False)
+        else:  # Specific time mode
+            self.interval_widget.setVisible(False)
+            self.time_widget.setVisible(True)
+        
+        # If scheduler is running, restart with new mode
+        if self.scheduler.is_running():
+            self.scheduler.stop()
+            self.save_settings()
+            
+            if index == 0:
+                self.scheduler.set_interval(self.schedule_interval_input.value())
+                self.log_output(
+                    f"✓ 切换到间隔模式，间隔 {self.schedule_interval_input.value()} 分钟\n"
+                    f"  (Switched to interval mode, interval: {self.schedule_interval_input.value()} minutes)\n"
+                )
+            else:
+                time = self.schedule_time_input.time()
+                self.scheduler.set_specific_time(time.hour(), time.minute())
+                self.log_output(
+                    f"✓ 切换到定时模式，每天 {time.toString('HH:mm')} 执行\n"
+                    f"  (Switched to specific time mode, daily at {time.toString('HH:mm')})\n"
+                )
+            
+            self.scheduler.start()
+
+    def update_next_execution_display(self):
+        """Update the next execution time display."""
+        next_time = self.scheduler.get_next_execution_time()
+        if next_time:
+            from datetime import datetime
+            now = datetime.now()
+            diff = next_time - now
+            
+            # Format time difference
+            if diff.total_seconds() < 60:
+                time_str = f"{int(diff.total_seconds())} 秒后 (in {int(diff.total_seconds())}s)"
+            elif diff.total_seconds() < 3600:
+                minutes = int(diff.total_seconds() / 60)
+                time_str = f"{minutes} 分钟后 (in {minutes}m)"
+            elif diff.total_seconds() < 86400:
+                hours = int(diff.total_seconds() / 3600)
+                minutes = int((diff.total_seconds() % 3600) / 60)
+                time_str = f"{hours}小时{minutes}分钟后 (in {hours}h {minutes}m)"
+            else:
+                days = int(diff.total_seconds() / 86400)
+                hours = int((diff.total_seconds() % 86400) / 3600)
+                time_str = f"{days}天{hours}小时后 (in {days}d {hours}h)"
+            
+            self.next_execution_label.setText(
+                f"下次执行 (Next): {next_time.strftime('%Y-%m-%d %H:%M:%S')} ({time_str})"
+            )
+        else:
+            self.next_execution_label.setText("下次执行 (Next): --")
+
     def on_interval_changed(self, value: int):
         """Handle interval change."""
-        if self.scheduler.is_running():
+        if self.scheduler.is_running() and self.schedule_mode_combo.currentIndex() == 0:
             self.scheduler.set_interval(value)
             self.log_output(f"✓ 定时间隔已更新为 {value} 分钟 (Interval updated to {value} minutes)\n")
 
