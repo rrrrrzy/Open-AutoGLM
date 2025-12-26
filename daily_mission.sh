@@ -31,6 +31,9 @@ sleep 2
 # 模拟上滑解锁 (参数：x1 y1 x2 y2 持续时间ms)
 "$ADB_EXEC" shell input swipe 500 1500 500 500 300
 sleep 2
+# 先用 adb 结束米游社进程，保证之前的操作不影响后面
+"$ADB_EXEC" shell am force-stop com.mihoyo.hyperion
+
 
 # 2. 执行 AutoGLM
 # 使用绝对路径的 Python 运行 main.py
@@ -46,8 +49,10 @@ sleep 2
     步骤5：最后，请把手机返回到桌面。" \
     >> run.log 2>&1
 
-# 用 adb 结束米游社进程
+# 再次用 adb 结束米游社进程
+"$ADB_EXEC" shell am force-stop com.mihoyo.hyperion
 
 # adb 锁定屏幕
+"$ADB_EXEC" shell input keyevent 223
 
 echo "[$(date)] 任务结束" >> run.log
