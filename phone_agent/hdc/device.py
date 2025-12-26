@@ -8,6 +8,7 @@ from typing import List, Optional, Tuple
 from phone_agent.config.apps_harmonyos import APP_ABILITIES, APP_PACKAGES
 from phone_agent.config.timing import TIMING_CONFIG
 from phone_agent.hdc.connection import _run_hdc_command
+from phone_agent.subprocess_utils import run_hidden
 
 
 def get_current_app(device_id: str | None = None) -> str:

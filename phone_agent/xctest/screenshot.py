@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from io import BytesIO
 
 from PIL import Image
+from phone_agent.subprocess_utils import run_hidden
 
 
 @dataclass
@@ -126,7 +127,7 @@ def _get_screenshot_idevice(
             cmd.extend(["-u", device_id])
         cmd.append(temp_path)
 
-        result = subprocess.run(
+        result = run_hidden(
             cmd, capture_output=True, text=True, timeout=timeout
         )
 

@@ -995,3 +995,39 @@ python main.py --list-apps
 ---
 
 **部署完成的标志：手机能自动执行用户的自然语言指令。**
+
+---
+
+## 打包为可执行程序
+
+Phone Agent 支持打包为独立的可执行程序（.exe/.app），无需 Python 环境即可运行。
+
+### 快速打包
+
+#### Windows
+```powershell
+.\build.ps1
+```
+
+#### Linux/macOS
+```bash
+chmod +x build.sh
+./build.sh
+```
+
+### 运行打包后的程序
+
+打包完成后：
+- **Windows**: 双击 `dist\PhoneAgent.exe`
+- **Linux**: 运行 `./dist/PhoneAgent`
+- **macOS**: 双击 `dist/PhoneAgent.app`
+
+打包版本会自动启动 GUI 界面，具有以下特性：
+- ✅ 无需终端，双击即用
+- ✅ 系统托盘图标（最小化到托盘）
+- ✅ 无控制台窗口
+- ✅ 完全独立运行
+
+详细打包说明请参考：[打包文档](docs/PACKAGING.md)
+
+---

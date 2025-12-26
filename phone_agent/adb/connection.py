@@ -7,6 +7,7 @@ from enum import Enum
 from typing import Optional
 
 from phone_agent.config.timing import TIMING_CONFIG
+from phone_agent.subprocess_utils import run_hidden
 
 
 class ConnectionType(Enum):
@@ -73,7 +74,7 @@ class ADBConnection:
             address = f"{address}:5555"  # Default ADB port
 
         try:
-            result = subprocess.run(
+            result = run_hidden(
                 [self.adb_path, "connect", address],
                 capture_output=True,
                 text=True,
@@ -109,7 +110,7 @@ class ADBConnection:
             if address:
                 cmd.append(address)
 
-            result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", timeout=5)
+            result = run_hidden(cmd, capture_output=True, text=True, encoding="utf-8", timeout=5)
 
             output = result.stdout + result.stderr
             return True, output.strip() or "Disconnected"
@@ -125,7 +126,7 @@ class ADBConnection:
             List of DeviceInfo objects.
         """
         try:
-            result = subprocess.run(
+            result = run_hidden(
                 [self.adb_path, "devices", "-l"],
                 capture_output=True,
                 text=True,
@@ -241,7 +242,7 @@ class ADBConnection:
                 cmd.extend(["-s", device_id])
             cmd.extend(["tcpip", str(port)])
 
-            result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", timeout=10)
+            result = run_hidden(cmd, capture_output=True, text=True, encoding="utf-8", timeout=10)
 
             output = result.stdout + result.stderr
 
@@ -270,7 +271,7 @@ class ADBConnection:
                 cmd.extend(["-s", device_id])
             cmd.extend(["shell", "ip", "route"])
 
-            result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", timeout=5)
+            result = run_hidden(cmd, capture_output=True, text=True, encoding="utf-8", timeout=5)
 
             # Parse IP from route output
             for line in result.stdout.split("\n"):
@@ -282,7 +283,7 @@ class ADBConnection:
 
             # Alternative: try wlan0 interface
             cmd[-1] = "ip addr show wlan0"
-            result = subprocess.run(
+            result = run_hidden(
                 cmd[:-1] + ["shell", "ip", "addr", "show", "wlan0"],
                 capture_output=True,
                 text=True,
@@ -311,14 +312,14 @@ class ADBConnection:
         """
         try:
             # Kill server
-            subprocess.run(
+            run_hidden(
                 [self.adb_path, "kill-server"], capture_output=True, timeout=5
             )
 
             time.sleep(TIMING_CONFIG.connection.server_restart_delay)
 
             # Start server
-            subprocess.run(
+            run_hidden(
                 [self.adb_path, "start-server"], capture_output=True, timeout=5
             )
 

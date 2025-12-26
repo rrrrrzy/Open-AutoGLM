@@ -9,6 +9,7 @@ from typing import Any, Callable
 
 from phone_agent.config.timing import TIMING_CONFIG
 from phone_agent.device_factory import get_device_factory
+from phone_agent.subprocess_utils import run_hidden
 
 
 @dataclass
@@ -289,7 +290,7 @@ class ActionHandler:
                             )
                         else:
                             # Fallback to ADB-style command for unsupported keys
-                            subprocess.run(
+                            run_hidden(
                                 hdc_prefix + ["shell", "input", "keyevent", keycode],
                                 capture_output=True,
                                 text=True,
@@ -303,7 +304,7 @@ class ActionHandler:
                         )
                 except Exception:
                     # Fallback to ADB-style command
-                    subprocess.run(
+                    run_hidden(
                         hdc_prefix + ["shell", "input", "keyevent", keycode],
                         capture_output=True,
                         text=True,
@@ -311,7 +312,7 @@ class ActionHandler:
         else:
             # ADB devices use standard input keyevent command
             cmd_prefix = ["adb", "-s", self.device_id] if self.device_id else ["adb"]
-            subprocess.run(
+            run_hidden(
                 cmd_prefix + ["shell", "input", "keyevent", keycode],
                 capture_output=True,
                 text=True,

@@ -23,6 +23,7 @@ from urllib.parse import urlparse
 from openai import OpenAI
 
 from phone_agent import PhoneAgent
+from phone_agent.subprocess_utils import run_hidden
 from phone_agent.agent import AgentConfig
 from phone_agent.agent_ios import IOSAgentConfig, IOSPhoneAgent
 from phone_agent.config.apps import list_supported_apps
@@ -97,7 +98,7 @@ def check_system_requirements(
             else:  # IOS
                 version_cmd = [tool_cmd, "-ln"]
 
-            result = subprocess.run(
+            result = run_hidden(
                 version_cmd, capture_output=True, text=True, timeout=10
             )
             if result.returncode == 0:
@@ -126,7 +127,7 @@ def check_system_requirements(
     print("2. Checking connected devices...", end=" ")
     try:
         if device_type == DeviceType.ADB:
-            result = subprocess.run(
+            result = run_hidden(
                 ["adb", "devices"], capture_output=True, text=True, timeout=10
             )
             lines = result.stdout.strip().split("\n")
@@ -135,7 +136,7 @@ def check_system_requirements(
                 line for line in lines[1:] if line.strip() and "\tdevice" in line
             ]
         elif device_type == DeviceType.HDC:
-            result = subprocess.run(
+            result = run_hidden(
                 ["hdc", "list", "targets"], capture_output=True, text=True, timeout=10
             )
             lines = result.stdout.strip().split("\n")
@@ -195,7 +196,7 @@ def check_system_requirements(
     if device_type == DeviceType.ADB:
         print("3. Checking ADB Keyboard...", end=" ")
         try:
-            result = subprocess.run(
+            result = run_hidden(
                 ["adb", "shell", "ime", "list", "-s"],
                 capture_output=True,
                 text=True,
@@ -798,7 +799,15 @@ def main():
     """Main entry point."""
     args = parse_args()
     
-    # Check if UI mode is requested
+    # Detect if running as packaged executable
+    is_packaged = getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
+    
+    # If packaged and no arguments provided, default to UI mode
+    if is_packaged and len(sys.argv) == 1:
+        run_ui_mode()
+        return
+    
+    # Check if UI mode is explicitly requested
     if args.ui:
         run_ui_mode()
         return

@@ -8,6 +8,7 @@ from enum import Enum
 from typing import Optional
 
 from phone_agent.config.timing import TIMING_CONFIG
+from phone_agent.subprocess_utils import run_hidden
 
 
 # Global flag to control HDC command output
@@ -28,7 +29,7 @@ def _run_hdc_command(cmd: list, **kwargs) -> subprocess.CompletedProcess:
     if _HDC_VERBOSE:
         print(f"[HDC] Running command: {' '.join(cmd)}")
 
-    result = subprocess.run(cmd, **kwargs)
+    result = run_hidden(cmd, **kwargs)
 
     if _HDC_VERBOSE and result.returncode != 0:
         print(f"[HDC] Command failed with return code {result.returncode}")

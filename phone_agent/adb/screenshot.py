@@ -11,6 +11,8 @@ from typing import Tuple
 
 from PIL import Image
 
+from phone_agent.subprocess_utils import run_hidden
+
 
 @dataclass
 class Screenshot:
@@ -42,7 +44,7 @@ def get_screenshot(device_id: str | None = None, timeout: int = 10) -> Screensho
 
     try:
         # Execute screenshot command
-        result = subprocess.run(
+        result = run_hidden(
             adb_prefix + ["shell", "screencap", "-p", "/sdcard/tmp.png"],
             capture_output=True,
             text=True,
@@ -55,7 +57,7 @@ def get_screenshot(device_id: str | None = None, timeout: int = 10) -> Screensho
             return _create_fallback_screenshot(is_sensitive=True)
 
         # Pull screenshot to local temp path
-        subprocess.run(
+        run_hidden(
             adb_prefix + ["pull", "/sdcard/tmp.png", temp_path],
             capture_output=True,
             text=True,

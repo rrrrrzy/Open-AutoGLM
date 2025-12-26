@@ -4,6 +4,8 @@ import base64
 import subprocess
 from typing import Optional
 
+from phone_agent.subprocess_utils import run_hidden
+
 
 def type_text(text: str, device_id: str | None = None) -> None:
     """
@@ -20,7 +22,7 @@ def type_text(text: str, device_id: str | None = None) -> None:
     adb_prefix = _get_adb_prefix(device_id)
     encoded_text = base64.b64encode(text.encode("utf-8")).decode("utf-8")
 
-    subprocess.run(
+    run_hidden(
         adb_prefix
         + [
             "shell",
@@ -46,7 +48,7 @@ def clear_text(device_id: str | None = None) -> None:
     """
     adb_prefix = _get_adb_prefix(device_id)
 
-    subprocess.run(
+    run_hidden(
         adb_prefix + ["shell", "am", "broadcast", "-a", "ADB_CLEAR_TEXT"],
         capture_output=True,
         text=True,
@@ -66,7 +68,7 @@ def detect_and_set_adb_keyboard(device_id: str | None = None) -> str:
     adb_prefix = _get_adb_prefix(device_id)
 
     # Get current IME
-    result = subprocess.run(
+    result = run_hidden(
         adb_prefix + ["shell", "settings", "get", "secure", "default_input_method"],
         capture_output=True,
         text=True,
@@ -75,7 +77,7 @@ def detect_and_set_adb_keyboard(device_id: str | None = None) -> str:
 
     # Switch to ADB Keyboard if not already set
     if "com.android.adbkeyboard/.AdbIME" not in current_ime:
-        subprocess.run(
+        run_hidden(
             adb_prefix + ["shell", "ime", "set", "com.android.adbkeyboard/.AdbIME"],
             capture_output=True,
             text=True,
@@ -97,7 +99,7 @@ def restore_keyboard(ime: str, device_id: str | None = None) -> None:
     """
     adb_prefix = _get_adb_prefix(device_id)
 
-    subprocess.run(
+    run_hidden(
         adb_prefix + ["shell", "ime", "set", ime], capture_output=True, text=True
     )
 

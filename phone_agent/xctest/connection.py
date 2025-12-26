@@ -5,6 +5,8 @@ import time
 from dataclasses import dataclass
 from enum import Enum
 
+from phone_agent.subprocess_utils import run_hidden
+
 
 class ConnectionType(Enum):
     """Type of iOS connection."""
@@ -67,7 +69,7 @@ class XCTestConnection:
         """
         try:
             # Get list of device UDIDs
-            result = subprocess.run(
+            result = run_hidden(
                 ["idevice_id", "-ln"],
                 capture_output=True,
                 text=True,
@@ -123,7 +125,7 @@ class XCTestConnection:
             Dictionary with device details.
         """
         try:
-            result = subprocess.run(
+            result = run_hidden(
                 ["ideviceinfo", "-u", udid],
                 capture_output=True,
                 text=True,
@@ -287,7 +289,7 @@ class XCTestConnection:
                 cmd.extend(["-u", device_id])
             cmd.append("pair")
 
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            result = run_hidden(cmd, capture_output=True, text=True, timeout=30)
 
             output = result.stdout + result.stderr
 
@@ -320,7 +322,7 @@ class XCTestConnection:
                 cmd.extend(["-u", device_id])
             cmd.extend(["-k", "DeviceName"])
 
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            result = run_hidden(cmd, capture_output=True, text=True, timeout=5)
 
             return result.stdout.strip() or None
 

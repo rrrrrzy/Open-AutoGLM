@@ -29,6 +29,7 @@ from PyQt6.QtWidgets import (
 
 from .scheduler import TaskScheduler
 from .settings import SettingsManager
+from .resource_path import get_resource_path
 
 
 class OutputRedirector(io.TextIOBase):
@@ -588,7 +589,7 @@ class MainWindow(QMainWindow):
     def init_tray_icon(self):
         """Initialize system tray icon."""
         # Load icon from image.png in project root
-        icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "image.png")
+        icon_path = get_resource_path("image.png")
         if os.path.exists(icon_path):
             icon = QIcon(icon_path)
         else:

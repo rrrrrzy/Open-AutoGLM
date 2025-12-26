@@ -5,6 +5,7 @@ import subprocess
 from typing import Optional
 
 from phone_agent.hdc.connection import _run_hdc_command
+from phone_agent.subprocess_utils import run_hidden
 
 
 def type_text(text: str, device_id: str | None = None) -> None:

@@ -7,6 +7,7 @@ from typing import List, Optional, Tuple
 
 from phone_agent.config.apps import APP_PACKAGES
 from phone_agent.config.timing import TIMING_CONFIG
+from phone_agent.subprocess_utils import run_hidden
 
 
 def get_current_app(device_id: str | None = None) -> str:
@@ -25,7 +26,7 @@ def get_current_app(device_id: str | None = None) -> str:
     max_retries = 3
     for attempt in range(max_retries):
         try:
-            result = subprocess.run(
+            result = run_hidden(
                 adb_prefix + ["shell", "dumpsys", "window"],
                 capture_output=True,
                 text=True,
@@ -95,7 +96,7 @@ def tap(
 
     adb_prefix = _get_adb_prefix(device_id)
 
-    subprocess.run(
+    run_hidden(
         adb_prefix + ["shell", "input", "tap", str(x), str(y)], capture_output=True
     )
     time.sleep(delay)
@@ -118,11 +119,11 @@ def double_tap(
 
     adb_prefix = _get_adb_prefix(device_id)
 
-    subprocess.run(
+    run_hidden(
         adb_prefix + ["shell", "input", "tap", str(x), str(y)], capture_output=True
     )
     time.sleep(TIMING_CONFIG.device.double_tap_interval)
-    subprocess.run(
+    run_hidden(
         adb_prefix + ["shell", "input", "tap", str(x), str(y)], capture_output=True
     )
     time.sleep(delay)
@@ -150,7 +151,7 @@ def long_press(
 
     adb_prefix = _get_adb_prefix(device_id)
 
-    subprocess.run(
+    run_hidden(
         adb_prefix
         + ["shell", "input", "swipe", str(x), str(y), str(x), str(y), str(duration_ms)],
         capture_output=True,
@@ -190,7 +191,7 @@ def swipe(
         duration_ms = int(dist_sq / 1000)
         duration_ms = max(1000, min(duration_ms, 2000))  # Clamp between 1000-2000ms
 
-    subprocess.run(
+    run_hidden(
         adb_prefix
         + [
             "shell",
@@ -220,7 +221,7 @@ def back(device_id: str | None = None, delay: float | None = None) -> None:
 
     adb_prefix = _get_adb_prefix(device_id)
 
-    subprocess.run(
+    run_hidden(
         adb_prefix + ["shell", "input", "keyevent", "4"], capture_output=True
     )
     time.sleep(delay)
@@ -239,7 +240,7 @@ def home(device_id: str | None = None, delay: float | None = None) -> None:
 
     adb_prefix = _get_adb_prefix(device_id)
 
-    subprocess.run(
+    run_hidden(
         adb_prefix + ["shell", "input", "keyevent", "KEYCODE_HOME"], capture_output=True
     )
     time.sleep(delay)
@@ -268,7 +269,7 @@ def launch_app(
     adb_prefix = _get_adb_prefix(device_id)
     package = APP_PACKAGES[app_name]
 
-    subprocess.run(
+    run_hidden(
         adb_prefix
         + [
             "shell",
