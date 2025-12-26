@@ -2,9 +2,11 @@
 
 import sys
 import io
+import os
 from typing import Callable, Optional
 
-from PyQt6.QtCore import QThread, pyqtSignal, Qt
+from PyQt6.QtCore import QThread, pyqtSignal, Qt, QEvent
+from PyQt6.QtGui import QIcon, QAction
 from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -15,9 +17,11 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QPushButton,
     QSpinBox,
+    QSystemTrayIcon,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -197,6 +201,7 @@ class MainWindow(QMainWindow):
 
         self.init_ui()
         self.load_settings()
+        self.init_tray_icon()
 
     def init_ui(self):
         """Initialize the user interface."""
@@ -579,6 +584,65 @@ class MainWindow(QMainWindow):
                 event.ignore()
         else:
             event.accept()
+
+    def init_tray_icon(self):
+        """Initialize system tray icon."""
+        # Load icon from image.png in project root
+        icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "image.png")
+        if os.path.exists(icon_path):
+            icon = QIcon(icon_path)
+        else:
+            # Fallback to default icon if image.png not found
+            icon = QIcon()
+
+        # Create system tray icon
+        self.tray_icon = QSystemTrayIcon(icon, self)
+
+        # Create tray menu
+        tray_menu = QMenu()
+
+        show_action = QAction("显示窗口", self)
+        show_action.triggered.connect(self.show_from_tray)
+        tray_menu.addAction(show_action)
+
+        hide_action = QAction("隐藏窗口", self)
+        hide_action.triggered.connect(self.hide)
+        tray_menu.addAction(hide_action)
+
+        tray_menu.addSeparator()
+
+        quit_action = QAction("退出", self)
+        quit_action.triggered.connect(QApplication.quit)
+        tray_menu.addAction(quit_action)
+
+        self.tray_icon.setContextMenu(tray_menu)
+
+        # Double-click tray icon to restore window
+        self.tray_icon.activated.connect(self.on_tray_activated)
+
+        # Show tray icon
+        self.tray_icon.show()
+
+    def on_tray_activated(self, reason):
+        """Handle tray icon activation."""
+        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+            self.show_from_tray()
+
+    def show_from_tray(self):
+        """Show window from system tray."""
+        self.show()
+        self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized | Qt.WindowState.WindowActive)
+        self.activateWindow()
+
+    def changeEvent(self, event):
+        """Handle window state changes."""
+        if event.type() == QEvent.Type.WindowStateChange:
+            if self.windowState() & Qt.WindowState.WindowMinimized:
+                # Hide to tray when minimized
+                event.ignore()
+                self.hide()
+                return
+        super().changeEvent(event)
 
 
 def main():
