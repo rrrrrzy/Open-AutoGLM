@@ -207,6 +207,7 @@ def check_system_requirements(
                 print("✅ OK")
             else:
                 print("❌ FAILED")
+                print("ime_list: {ime_list}")
                 print("   Error: ADB Keyboard is not installed on the device.")
                 print("   Solution:")
                 print("     1. Download ADB Keyboard APK from:")

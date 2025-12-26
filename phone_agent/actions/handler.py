@@ -345,6 +345,9 @@ def parse_action(response: str) -> dict[str, Any]:
     print(f"Parsing action: {response}")
     try:
         response = response.strip()
+        # Remove trailing </answer> tag if present
+        if response.endswith("</answer>"):
+            response = response[:-len("</answer>")].strip()
         if response.startswith('do(action="Type"') or response.startswith(
             'do(action="Type_Name"'
         ):

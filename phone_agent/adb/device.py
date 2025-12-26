@@ -21,20 +21,60 @@ def get_current_app(device_id: str | None = None) -> str:
     """
     adb_prefix = _get_adb_prefix(device_id)
 
-    result = subprocess.run(
-        adb_prefix + ["shell", "dumpsys", "window"], capture_output=True, text=True, encoding="utf-8"
-    )
-    output = result.stdout
-    if not output:
-        raise ValueError("No output from dumpsys window")
+    # Retry mechanism for flaky ADB connections
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            result = subprocess.run(
+                adb_prefix + ["shell", "dumpsys", "window"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=10,  # 10 second timeout
+                errors="replace"  # Replace invalid chars instead of failing
+            )
+            
+            # Check for command execution errors
+            if result.returncode != 0:
+                error_msg = result.stderr.strip() if result.stderr else "Unknown error"
+                if attempt < max_retries - 1:
+                    time.sleep(0.5)  # Brief delay before retry
+                    continue
+                raise ValueError(f"ADB command failed: {error_msg}")
+            
+            output = result.stdout
+            if not output or len(output.strip()) == 0:
+                if attempt < max_retries - 1:
+                    time.sleep(0.5)  # Brief delay before retry
+                    continue
+                # If all retries failed, return default instead of crashing
+                print(f"Warning: No output from dumpsys window after {max_retries} attempts, returning System Home")
+                return "System Home"
 
-    # Parse window focus info
-    for line in output.split("\n"):
-        if "mCurrentFocus" in line or "mFocusedApp" in line:
-            for app_name, package in APP_PACKAGES.items():
-                if package in line:
-                    return app_name
+            # Parse window focus info
+            for line in output.split("\n"):
+                if "mCurrentFocus" in line or "mFocusedApp" in line:
+                    for app_name, package in APP_PACKAGES.items():
+                        if package in line:
+                            return app_name
 
+            return "System Home"
+            
+        except subprocess.TimeoutExpired:
+            if attempt < max_retries - 1:
+                print(f"ADB command timeout, retrying... (attempt {attempt + 1}/{max_retries})")
+                time.sleep(0.5)
+                continue
+            print(f"Warning: ADB command timeout after {max_retries} attempts, returning System Home")
+            return "System Home"
+        except Exception as e:
+            if attempt < max_retries - 1:
+                print(f"ADB error: {e}, retrying... (attempt {attempt + 1}/{max_retries})")
+                time.sleep(0.5)
+                continue
+            print(f"Warning: ADB error after {max_retries} attempts: {e}, returning System Home")
+            return "System Home"
+    
     return "System Home"
 
 

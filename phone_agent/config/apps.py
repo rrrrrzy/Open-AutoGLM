@@ -67,6 +67,7 @@ APP_PACKAGES: dict[str, str] = {
     # Games
     "星穹铁道": "com.miHoYo.hkrpg",
     "崩坏：星穹铁道": "com.miHoYo.hkrpg",
+    "米游社":"com.mihoyo.hyperion",
     "恋与深空": "com.papegames.lysk.cn",
     "AndroidSystemSettings": "com.android.settings",
     "Android System Settings": "com.android.settings",
